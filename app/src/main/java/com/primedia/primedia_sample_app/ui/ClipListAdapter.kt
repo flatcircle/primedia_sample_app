@@ -1,0 +1,20 @@
+package com.primedia.primedia_sample_app.ui
+
+import android.view.ViewGroup
+import androidx.recyclerview.widget.RecyclerView
+
+class ClipListAdapter: RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        TODO("Not yet implemented")
+    }
+
+    override fun getItemCount(): Int {
+        TODO("Not yet implemented")
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        TODO("Not yet implemented")
+    }
+}

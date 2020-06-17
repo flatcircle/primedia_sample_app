@@ -1,0 +1,13 @@
+package com.primedia.primedia_sample_app.util
+
+enum class PreferencesConstants(val value: String) {
+    TOKEN("TOKEN"),
+    LAST_TOKEN_REFRESH("LAST_TOKEN_REFRESH"),
+    LAST_EDITED_NAME("LAST_EDITED_NAME"),
+    GO_TO_PLAYER("GO_TO_PLAYER"),
+    CURRENT_PLAYLIST_UID("CURRENT_PLAYLIST_UID"),
+    USER_SIGNED_IN("SIGNED_IN"),
+    USER_SET_PREFERENCES("PREFERENCES_SET"),
+    BASE_URL("BASE_URL"),
+    DEVELOPER_OPTIONS("DEVELOPER_OPTIONS")
+}
