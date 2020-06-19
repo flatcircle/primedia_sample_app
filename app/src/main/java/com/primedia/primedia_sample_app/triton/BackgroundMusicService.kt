@@ -304,11 +304,11 @@ class BackgroundMusicService : MediaBrowserServiceCompat(), AudioManager.OnAudio
                     player.stop()
                 }
                 KeyEvent.KEYCODE_MEDIA_NEXT -> {
-                    player.playNextClip(true)
+//                    player.playNextClip(true)
 
                 }
                 KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
-                    player.playPreviousClip()
+//                    player.playPreviousClip()
                 }
             }
         }
@@ -370,13 +370,13 @@ class BackgroundMusicService : MediaBrowserServiceCompat(), AudioManager.OnAudio
 
         override fun onSkipToNext() {
             super.onSkipToNext()
-            player.playNextClip(true)
+//            player.playNextClip(true)
             Timber.d("onSkipToNext")
         }
 
         override fun onSkipToPrevious() {
             super.onSkipToPrevious()
-            player.playPreviousClip()
+//            player.playPreviousClip()
             Timber.d("onSkipToPrevious")
         }
 
