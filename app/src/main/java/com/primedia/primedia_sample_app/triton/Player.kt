@@ -238,8 +238,8 @@ class Player(
         }
     }
 
-    fun isPausable(): Boolean? {
-        return tritonPlayer?.isPausable
+    fun isPausable(): Boolean {
+        return tritonPlayer?.isPausable ?: false
     }
 
     fun release() {
