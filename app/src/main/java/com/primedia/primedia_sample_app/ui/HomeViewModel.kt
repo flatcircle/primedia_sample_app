@@ -2,38 +2,15 @@ package com.primedia.primedia_sample_app.ui
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.MutableLiveData
 import com.primedia.primedia_sample_app.App
-import com.primedia.primedia_sample_app.models.StreamDataModel
 import com.primedia.primedia_sample_app.models.StreamItemDataModel
 import com.primedia.primedia_sample_app.models.StreamItemDataModelType
-import com.primedia.primedia_sample_app.rest.ApiResponse
-import com.primedia.primedia_sample_app.rest.PrimediaRepository
 import com.primedia.primedia_sample_app.triton.Player
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import org.kodein.di.generic.instance
 
 class HomeViewModel(context: Application): AndroidViewModel(context) {
 
-    private val primediaRepo: PrimediaRepository by App.kodein.instance<PrimediaRepository>()
     private val player: Player by App.kodein.instance<Player>()
-
-    private val serviceJob = SupervisorJob()
-    private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
-
-    val homeData = MutableLiveData<ApiResponse<List<StreamDataModel>>?>()
-
-    fun getHomePageData(){
-        serviceScope.launch {
-            val newHomeData = primediaRepo.getHome()
-            homeData.postValue(newHomeData)
-        }
-    }
-
-
 
     var currentPosition: Int = 0
 
@@ -123,9 +100,6 @@ class HomeViewModel(context: Application): AndroidViewModel(context) {
 
         player.playStream(songList[currentPosition])
         currentPosition++
-
-
-
     }
 
     fun pause(){
