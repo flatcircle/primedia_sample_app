@@ -18,6 +18,7 @@ import com.primedia.primedia_sample_app.App
 import com.primedia.primedia_sample_app.R
 import com.primedia.primedia_sample_app.triton.BackgroundMusicService
 import com.primedia.primedia_sample_app.triton.Player
+import com.tritondigital.player.MediaPlayer
 import io.reactivex.android.schedulers.AndroidSchedulers
 import org.kodein.di.generic.instance
 import timber.log.Timber
@@ -40,6 +41,7 @@ class MainActivity : AppCompatActivity() {
     private var description: TextView? = null
     private var play: ImageButton? = null
     private var skip: ImageButton? = null
+    private var errorWarning: TextView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,50 +59,26 @@ class MainActivity : AppCompatActivity() {
         rxSubs.add(player.playerStateObservable
             .subscribeOn(AndroidSchedulers.mainThread())
             .observeOn(AndroidSchedulers.mainThread())
-            .subscribe( { status ->
-                if(!isMyServiceRunning(BackgroundMusicService::class.java)){
+            .subscribe({ status ->
+                if (status == MediaPlayer.STATE_ERROR){
+                    errorWarning?.text = "Error State Has Come Through"
+                }
+                if (!isMyServiceRunning(BackgroundMusicService::class.java)) {
                     launchService()
                 }
-            },{
+            }, {
 
-            }))
-
-//        viewModel.getHomePageData()
-//        viewModel.homeData.observe(this, Observer {
-//            it?.let { response ->
-//                if (response.isSuccessful) {
-//                    if (!response.data().isNullOrEmpty()) {
-////                        homePageStorageController.cacheHomePage(HomePageModel(response.data()), cachedHomePage)
-////                        if (HomePageModel(response.data()) != cachedHomePage) {
-////                            buildView(response.data())
-////                        }
-//                    }
-//                } else {
-//                    Timber.d("Failure getting streams data")
-//                    //Snackbar.make(rootView, "Something went wrong", Snackbar.LENGTH_LONG).show()
-//                }
-////                hideProgress()
-////                pullToRefresh.isRefreshing = false
-//            }
-//        })
+            })
+        )
     }
 
-//    private fun buildView(models: List<StreamDataModel>) {
-//        val container: LinearLayout = findViewById(R.id.container)
-//        container.removeAllViews()
-//
-//        for (item in models) {
-//            val streamLayout = StreamLayout(item, this, this) // inject payload
-//            container.addView(streamLayout)
-//        }
-//    }
-
-    fun setUpViews(){
+    private fun setUpViews(){
         image = findViewById(R.id.image)
         title = findViewById(R.id.title)
         description = findViewById(R.id.description)
         play = findViewById(R.id.play)
         skip = findViewById(R.id.skip)
+        errorWarning = findViewById(R.id.txt_error_warning)
 
         play?.setOnClickListener {
             if(viewModel.isPausable()){
@@ -112,6 +90,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         skip?.setOnClickListener {
+            errorWarning?.text = ""
             setViewData()
             viewModel.play()
         }
@@ -143,7 +122,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun launchService() {
+    private fun launchService() {
         val intent = Intent(this.applicationContext, BackgroundMusicService::class.java)
         mediaBrowserCompat = MediaBrowserCompat(
             this, ComponentName(this, BackgroundMusicService::class.java),
@@ -152,7 +131,7 @@ class MainActivity : AppCompatActivity() {
         mediaBrowserCompat?.connect()
     }
 
-    fun isMyServiceRunning(serviceClass: Class<*>): Boolean {
+    private fun isMyServiceRunning(serviceClass: Class<*>): Boolean {
         val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         for (service in manager.getRunningServices(Int.MAX_VALUE)) {
             if (serviceClass.name == service.service.className) {
