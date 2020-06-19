@@ -32,7 +32,7 @@ class MediaNotificationBuilderHelper(private val context: Context, private val n
     }
 
     private val playAction = NotificationCompat.Action(
-        R.drawable.ic_launcher_background,
+        R.drawable.ic_mini_play,
         "Play",
         MediaButtonReceiver.buildMediaButtonPendingIntent(
             context,
@@ -41,7 +41,7 @@ class MediaNotificationBuilderHelper(private val context: Context, private val n
     )
 
     private val pauseAction = NotificationCompat.Action(
-        R.drawable.ic_launcher_background,
+        R.drawable.ic_pause_black_24dp,
         "Pause",
         MediaButtonReceiver.buildMediaButtonPendingIntent(
             context,
@@ -50,7 +50,7 @@ class MediaNotificationBuilderHelper(private val context: Context, private val n
     )
 
     private val stopAction = NotificationCompat.Action(
-        R.drawable.ic_launcher_background,
+        R.drawable.ic_mini_stop,
         "Pause",
         MediaButtonReceiver.buildMediaButtonPendingIntent(
             context,
@@ -59,7 +59,7 @@ class MediaNotificationBuilderHelper(private val context: Context, private val n
     )
 
     private val previousAction = NotificationCompat.Action(
-        R.drawable.ic_launcher_background,
+        R.drawable.ic_player_previous,
         "Previous",
         MediaButtonReceiver.buildMediaButtonPendingIntent(
             context,
@@ -68,7 +68,7 @@ class MediaNotificationBuilderHelper(private val context: Context, private val n
     )
 
     private val nextAction = NotificationCompat.Action(
-        R.drawable.ic_launcher_background,
+        R.drawable.ic_player_next,
         "Next",
         MediaButtonReceiver.buildMediaButtonPendingIntent(
             context,
@@ -105,7 +105,7 @@ class MediaNotificationBuilderHelper(private val context: Context, private val n
         notificationIntent.putExtra(PreferencesConstants.GO_TO_PLAYER.value, true)
         val intent = PendingIntent.getActivity(context, 0, notificationIntent, 0)
 
-        Timber.d("Did we get the notification drawable: $largeIconBitmap")
+//        Timber.d("Did we get the notification drawable: $largeIconBitmap")
 
         return builder
             .setContentIntent(intent)
@@ -118,7 +118,7 @@ class MediaNotificationBuilderHelper(private val context: Context, private val n
             .setVibrate(null)
             .setDeleteIntent(stopPendingIntent)
 //            .setLargeIcon(largeIconBitmap)
-//            .setSmallIcon(R.drawable.ic_hush_logo)
+            .setSmallIcon(R.drawable.ic_audiotrack_dark)
             .setStyle(
             androidx.media.app.NotificationCompat.MediaStyle()
                 .setCancelButtonIntent(
@@ -183,7 +183,7 @@ class MediaNotificationBuilderHelper(private val context: Context, private val n
             .setDeleteIntent(stopPendingIntent)
 //            .setLargeIcon(largeIconBitmap)
             .setOnlyAlertOnce(true)
-//            .setSmallIcon(R.drawable.ic_hush_logo)
+            .setSmallIcon(R.drawable.ic_audiotrack_dark)
             .setStyle(mediaStyle)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build()
@@ -192,7 +192,7 @@ class MediaNotificationBuilderHelper(private val context: Context, private val n
 
     private fun getLargeIconBitmap(controller: MediaControllerCompat): Bitmap? {
         val imageUrl = controller.metadata?.getString(MediaMetadataCompat.METADATA_KEY_ALBUM)
-        Timber.d("Image url is: $imageUrl")
+//        Timber.d("Image url is: $imageUrl")
         return if (!imageUrl.isNullOrEmpty()) {
             Glide.with(context).asBitmap().load(imageUrl).listener(object : RequestListener<Bitmap> {
                 override fun onLoadFailed(e: GlideException?, model: Any?, target: Target<Bitmap>?, isFirstResource: Boolean): Boolean {
@@ -202,7 +202,7 @@ class MediaNotificationBuilderHelper(private val context: Context, private val n
                 }
 
                 override fun onResourceReady(resource: Bitmap?, model: Any?, target: Target<Bitmap>?, dataSource: DataSource?, isFirstResource: Boolean): Boolean {
-                    Timber.d("Loaded bitmap image")
+//                    Timber.d("Loaded bitmap image")
                     return true
                 }
 
