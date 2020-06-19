@@ -64,7 +64,7 @@ class BackgroundMusicService : MediaBrowserServiceCompat(), AudioManager.OnAudio
     //noisy rreceiverfor audio change ie plugging in headphones
     private val mNoisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(p0: Context?, p1: Intent?) {
-            if (player.isPausable() != null && player.isPausable()!!) {
+            if (player.isPausable()) {
                 player.pause()
             }
         }
@@ -102,7 +102,7 @@ class BackgroundMusicService : MediaBrowserServiceCompat(), AudioManager.OnAudio
                 val playState = updatePlayBackStateBuilder()
                 mediaSession?.setPlaybackState(playState)
             }, {
-
+                Timber.e(it, "error getting player display model observable")
             }))
     }
 
@@ -134,7 +134,7 @@ class BackgroundMusicService : MediaBrowserServiceCompat(), AudioManager.OnAudio
         val mediaButtonReceiver = ComponentName(this, MediaButtonReceiver::class.java)
 
         //media session is used to control the various media processes needed to display to the system and connect to other media devices
-        mediaSession = MediaSessionCompat(kContext, "io.flatcircle.primedia_kotlin_native.triton.BackgroundMusicService", mediaButtonReceiver, null)
+        mediaSession = MediaSessionCompat(kContext, "com.primedia.primedia_sample_app.triton.BackgroundMusicService", mediaButtonReceiver, null)
         val token = mediaSession?.sessionToken
         Timber.d("PLAYERTOKEN = $token")
 
@@ -160,7 +160,7 @@ class BackgroundMusicService : MediaBrowserServiceCompat(), AudioManager.OnAudio
             override fun onMetadataChanged(metadata: MediaMetadataCompat?) {
                 mediaControllerCompat.playbackState?.let { state ->
                     serviceScope.launch {
-                        Timber.d("Update notification here")
+                        Timber.d("On MetaData changed Update notification")
                         updateNotification(state)
                     }
                 }
@@ -170,7 +170,7 @@ class BackgroundMusicService : MediaBrowserServiceCompat(), AudioManager.OnAudio
             override fun onPlaybackStateChanged(state: PlaybackStateCompat?) {
                 state?.let {
                     serviceScope.launch {
-                        Timber.d("Update notification")
+                        Timber.d("On Playback State changed update notification")
                         updateNotification(state)
                     }
                 }
@@ -281,7 +281,7 @@ class BackgroundMusicService : MediaBrowserServiceCompat(), AudioManager.OnAudio
 
     // this gets the callbacks from media notifications that are passed onto the receiver for this media session
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Timber.d("On start command called")
+//        Timber.d("On start command called")
         if (intent != null) handleIntent(intent)
         MediaButtonReceiver.handleIntent(mediaSession, intent)
         return Service.START_NOT_STICKY
@@ -291,11 +291,11 @@ class BackgroundMusicService : MediaBrowserServiceCompat(), AudioManager.OnAudio
         (intent.extras?.get(Intent.EXTRA_KEY_EVENT) as KeyEvent?)?.keyCode.also {
             when (it) {
                 KeyEvent.KEYCODE_MEDIA_PAUSE -> {
-                    Timber.d("On pause hit")
+                    Timber.d("Handle Intent pause hit")
                     player.pause()
                 }
                 KeyEvent.KEYCODE_MEDIA_PLAY -> {
-                    Timber.d("On play hit")
+                    Timber.d("Handle Intent play hit")
                     player.resumeStream()
 
                 }
@@ -316,7 +316,7 @@ class BackgroundMusicService : MediaBrowserServiceCompat(), AudioManager.OnAudio
     // onLoadChildren() and onGetRoot() are used for the connections to other devices and then controlling
     // what data needs to be shown based off the device. Currently have basic set up which allows just the app
     override fun onLoadChildren(parentId: String, result: Result<MutableList<MediaBrowserCompat.MediaItem>>) {
-        Timber.d("onLOadChildren")
+        Timber.d("onLoadChildren")
         result.sendResult(null)
     }
 
@@ -353,8 +353,7 @@ class BackgroundMusicService : MediaBrowserServiceCompat(), AudioManager.OnAudio
                 return
             }
 
-            Timber.d("New meta data is...")
-//            if (player)
+            Timber.d("Media Session Callback on play triggered")
             player.resumeStream()
         }
 
@@ -462,14 +461,13 @@ class BackgroundMusicService : MediaBrowserServiceCompat(), AudioManager.OnAudio
 
                         val newMetaData = builder.build()
                         if (newMetaData != currentMetaData) {
-                            mediaSession?.setMetadata(builder.build())
+                            mediaSession?.setMetadata(newMetaData)
                             currentMetaData = newMetaData
                         }
                     }
                 })
             }
         }
-
     }
 
     //this gets the playbackstatecompat arguments
@@ -478,7 +476,11 @@ class BackgroundMusicService : MediaBrowserServiceCompat(), AudioManager.OnAudio
         val playbackState: Int = getPlayBackState(state, playbackStateBuilder)
         val position = if (player.currentStationType == StreamItemDataModelType.CLIP) player.tritonPlayerPosition.toLong() else -1
 
-        //here we set the position of the seekbar and it's state, and playback speed
+        //&& (playbackState == PlaybackStateCompat.STATE_PLAYING || playbackState == PlaybackStateCompat.STATE_PAUSED
+        //                    || playbackState == PlaybackStateCompat.STATE_STOPPED)
+
+//
+//        //here we set the position of the seekbar and it's state, and playback speed
         if (position >= 0 && player.currentStationType == StreamItemDataModelType.CLIP) {
             playbackStateBuilder.setBufferedPosition(position)
             playbackStateBuilder.setState(playbackState, position, 1.0f)
