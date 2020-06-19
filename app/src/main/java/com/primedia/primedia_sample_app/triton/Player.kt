@@ -5,19 +5,12 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import com.primedia.primedia_sample_app.models.*
-import com.primedia.primedia_sample_app.rest.PrimediaRepository
 import com.primedia.primedia_sample_app.rest.RetrofitService
 import com.primedia.primedia_sample_app.room.MediaDbHelper
-import com.primedia.primedia_sample_app.room.PlaylistDbHelper
-import com.primedia.primedia_sample_app.room.entities.PlaylistMediaLinkEntity
 import com.primedia.primedia_sample_app.room.repositories.MediaRepository
-import com.primedia.primedia_sample_app.room.repositories.PlaylistMediaLinkRepository
-import com.primedia.primedia_sample_app.room.repositories.PlaylistRepository
-import com.primedia.primedia_sample_app.service.PreferenceService
 import com.primedia.primedia_sample_app.util.DateTimeUtils
 import com.primedia.primedia_sample_app.util.DateTimeUtils.convertStringToLong
 import com.primedia.primedia_sample_app.util.ModelConversionUtils.lastPlayedToMediaEntity
-import com.primedia.primedia_sample_app.util.ModelConversionUtils.mediaEntityToStreamItemDataModel
 import com.tritondigital.player.MediaPlayer
 import com.tritondigital.player.TritonPlayer
 import io.reactivex.Observable
@@ -31,11 +24,7 @@ import timber.log.Timber
 class Player(
     private val context: Context,
     private val retrofitService: RetrofitService,
-    private val mediaRepository: MediaRepository,
-    private val primediaRepo: PrimediaRepository,
-    private val playlistRepository: PlaylistRepository,
-    private val playlistMediaLinkRepository: PlaylistMediaLinkRepository,
-    val preferenceService: PreferenceService
+    private val mediaRepository: MediaRepository
 ) {
 
     companion object {
@@ -43,15 +32,9 @@ class Player(
         private const val PLAYER_SERVICES_REGION = "EU"
     }
 
-//    val analyticsService: AnalyticsService by App.kodein.instance()
-
-    private val serviceJob = SupervisorJob()
-    private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
-
     private val mainJob = SupervisorJob()
     private val mainScope = CoroutineScope(Dispatchers.Main + mainJob)
 
-    private val playlistDbHelper = PlaylistDbHelper()
     private val mediaDbHelper = MediaDbHelper()
 
     var playDisplayModelData = PlayerDisplayModelData()
@@ -98,31 +81,6 @@ class Player(
 
     init {
         setUpMediaPlayerListeners()
-//        if (preferenceService.currentPlaylistUid > 0) {
-//            playlistRepository.getPlaylistWithUid(preferenceService.currentPlaylistUid) {
-//                it?.let { playlist ->
-//                    playlistMediaLinkRepository.getMediaForPlaylist(preferenceService.currentPlaylistUid) { mediaItemList ->
-//                        mediaItemList?.let { mediaItems ->
-//                            if (mediaItems.isNotEmpty()) {
-//                                val orderedList = if (playlist.isRandomPlaylist) mediaItems.sortedBy { it.uid } else mediaItems.sortedBy { it.publishDate }
-//                                val lastPlayedMediaItem = orderedList[playlist.currentPosition]
-//                                playDisplayModelData = playDisplayModelData.copy(
-//                                    currentStreamDetails = mediaEntityToStreamItemDataModel(lastPlayedMediaItem),
-//                                    historicalProgress = lastPlayedMediaItem.progress
-//                                )
-//                                getStationCurrentShow(currentStreamIdentifier)
-//                                playerDisplayModelPublisher.onNext(true)
-//                                playDisplayModelData.currentStreamDetails?.let {
-//                                    mainScope.launch {
-//                                        tritonPlayer = TritonPlayer(context, getStationPlayerSettings())
-//                                    }
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        }
     }
 
     private fun setUpMediaPlayerListeners() {
@@ -193,12 +151,6 @@ class Player(
                     val storedProgress = playHistoryEntry?.progress ?: kotlin.run { 0 }
                     val storedListenToCompletion = playHistoryEntry?.listenedToCompletion ?: kotlin.run { false }
                     updatePlayerSettings(tritonStationInfo, storedProgress, storedListenToCompletion)
-
-                    if (initialMediaItemSelection) {
-                        if (tritonStationInfo.type == StreamItemDataModelType.CLIP || tritonStationInfo.type == StreamItemDataModelType.STREAM) {
-                            genRandomNextPlaylist(type = tritonStationInfo.type)
-                        }
-                    }
 
                     tritonPlayer?.play()
                 }
@@ -307,22 +259,9 @@ class Player(
         playDisplayModelData = playDisplayModelData.copy(seekbarInfo = SeekbarInfo())
         playerDisplayModelPublisher.onNext(true)
     }
-
-    fun clearDisplayDataModel() {
-        playDisplayModelData = PlayerDisplayModelData()
-    }
-
     private fun onCuePointReceived(cuePoint: CuePointMetaDataBundle) {
         if (hasReceivedFirstCuePointForStation) {
             val cuePointReceivedTime = System.currentTimeMillis()
-//            retrofitService.getTrackArtwork(cuePoint.trackId) { success, trackArtwork ->
-//                playDisplayModelData = if (success && trackArtwork != null) {
-//                    playDisplayModelData.copy(lastCuePointDetails = cuePoint.copy(startTime = cuePointReceivedTime, trackImageUrl = trackArtwork.image_url ?: ""))
-//                } else {
-//                    playDisplayModelData.copy(lastCuePointDetails = cuePoint.copy(startTime = cuePointReceivedTime))
-//                }
-//                playerDisplayModelPublisher.onNext(true)
-//            }
 
             playDisplayModelData.copy(lastCuePointDetails = cuePoint.copy(startTime = cuePointReceivedTime))
             playerDisplayModelPublisher.onNext(true)
@@ -352,7 +291,8 @@ class Player(
                     playDisplayModelData = playDisplayModelData.copy(seekbarInfo = seekbarInfo)
                     playerDisplayModelPublisher.onNext(true)
                     runnableIsRunning = true
-                } else {
+                }
+                else {
                     updateSeekbarInfo()
                 }
                 handler.postDelayed(this, 1000)
@@ -403,29 +343,6 @@ class Player(
         playerDisplayModelPublisher.onNext(true)
     }
 
-    fun userUpdateNonPlayingSeekbarPosition(pos: Int) {
-        playDisplayModelData.currentStreamDetails?.let { currentClip ->
-            mediaDbHelper.updateMediaItem(lastPlayedToMediaEntity(currentClip, pos, playDisplayModelData.listenedToCompletion)) {}
-        }
-        playDisplayModelData = playDisplayModelData.copy(historicalProgress = pos, seekbarInfo = playDisplayModelData.seekbarInfo.copy(playerPosition = pos))
-        playerDisplayModelPublisher.onNext(true)
-    }
-
-    fun setPlayerDisplayModelListenedComplete() {
-        playDisplayModelData = playDisplayModelData.copy(listenedToCompletion = true)
-        playDisplayModelData.currentStreamDetails?.let {
-            mediaRepository.getPlayEntityWithId(playDisplayModelData.currentStreamDetails?.identifier ?: "") { mediaEntity ->
-                mediaDbHelper.updateMediaItem(
-                    lastPlayedToMediaEntity(
-                        it,
-                        it.durationInMillis,
-                        playDisplayModelData.listenedToCompletion
-                    )
-                ) {}
-            }
-        }
-    }
-
     private fun updateCurrentPlayHistoryEntityProgressTime() {
         if (tritonPlayer?.state == MediaPlayer.STATE_PLAYING) {
 
@@ -436,215 +353,6 @@ class Player(
                     playDisplayModelData.listenedToCompletion
                 )
                 mediaDbHelper.updateMediaItem(mediaEntity) {}
-            }
-        }
-    }
-
-    fun playNextClip(userPressNext: Boolean) {
-        val currentPlaylistUid = preferenceService.currentPlaylistUid
-        if (currentPlaylistUid > 0) {
-            playlistRepository.getPlaylistWithUid(currentPlaylistUid) {
-                it?.let { playlist ->
-                    playlistMediaLinkRepository.getMediaForPlaylist(currentPlaylistUid) { list ->
-                        list?.let { mediaItems ->
-                            val orderedList = if (playlist.isRandomPlaylist) mediaItems.sortedBy { it.uid } else mediaItems.sortedBy { it.publishDate }
-                            var currentPosition = playlist.currentPosition
-
-                            Timber.d(orderedList.toString())
-                            // append random playlist with more random tracks
-                            if (playlist.isRandomPlaylist && orderedList.size == currentPosition + 1) {
-                                val nextPage = ((orderedList.size / 10) + 1).toString()
-                                Timber.d("SKIP - nextPage = $nextPage")
-                                genRandomNextPlaylist(currentStationType, append = true, pageNumber = nextPage)
-                            }
-
-                            if (currentPosition + 1 < orderedList.size) {
-                                Timber.d("SKIP - mediaItems = ${orderedList.size} | currentPosition = ${currentPosition}")
-                                currentPosition++
-                                val nuPlaylist = playlist.copy(currentPosition = currentPosition)
-                                val currentItem = orderedList[currentPosition]
-//                                analyticsService.eventTrackPlayed(currentItem.identifier, if (userPressNext) PlayOriginType.NEXT_TAP else PlayOriginType.NEXT_UP)
-                                playStream(mediaEntityToStreamItemDataModel(currentItem))
-                                playlistRepository.updatePlaylist(nuPlaylist)
-                            }
-
-                            // pull more clips in podcast before reaching the end
-                            if (!playlist.isRandomPlaylist && orderedList.size == currentPosition + 1) {
-                                fetchMoreNextPodcastClips(playlist.playlistId, list[currentPosition].identifier) { success, numAddedEpisodes ->
-                                    currentPosition += numAddedEpisodes
-                                    val nuPlaylist = playlist.copy(currentPosition = currentPosition)
-                                    playlistRepository.updatePlaylist(nuPlaylist)
-                                    tritonPlayer?.let { playerStatePublisher.onNext(it.state) } // to trigger an update the state of the previous button on the big player
-                                }
-                            }
-
-                        }
-                    }
-                } ?: kotlin.run {
-                    Timber.e("Playlist with uid = $currentPlaylistUid could not be found in the database.")
-                }
-            }
-        } else {
-            Timber.e("Not current playlist found in preferences.")
-        }
-    }
-
-    fun playPreviousClip() {
-        if (tritonPlayerPosition < 2999) {// 2999 work around the rounding of the seekbar. Allowing back track in the 2 second range
-            val currentPlaylistUid = preferenceService.currentPlaylistUid
-            if (currentPlaylistUid > 0) {
-                playlistRepository.getPlaylistWithUid(currentPlaylistUid) {
-                    it?.let { playlist ->
-                        if (playlist.isRandomPlaylist) {
-                            playlistMediaLinkRepository.getMediaForPlaylist(currentPlaylistUid) { list ->
-                                list?.let { mediaItems ->
-                                    val orderedList = if (playlist.isRandomPlaylist) mediaItems.sortedBy { it.uid } else mediaItems.sortedBy { it.publishDate }
-                                    var currentPosition = playlist.currentPosition
-
-                                    Timber.d(orderedList.toString())
-
-                                    // play previous clip in playlist
-                                    if (currentPosition - 1 >= 0) {
-                                        currentPosition--
-                                        val nuPlaylist = playlist.copy(currentPosition = currentPosition)
-                                        playStream(mediaEntityToStreamItemDataModel(orderedList[currentPosition]))
-                                        playlistRepository.updatePlaylist(nuPlaylist)
-                                    }
-
-                                    // pull more clips in podcast before reaching the end
-                                    if (!playlist.isRandomPlaylist && playlist.currentPosition == 1) {
-                                        fetchMorePreviousPodcastClips(playlist.playlistId, list[currentPosition].identifier) { success, numAddedEpisodes ->
-                                            currentPosition += numAddedEpisodes
-                                            val nuPlaylist = playlist.copy(currentPosition = currentPosition)
-                                            playlistRepository.updatePlaylist(nuPlaylist)
-                                            tritonPlayer?.let { playerStatePublisher.onNext(it.state) } // to trigger an update the state of the previous button on the big player
-                                        }
-                                    }
-
-                                }
-                            }
-                        }
-                    } ?: kotlin.run {
-                        Timber.e("Playlist with uid = $currentPlaylistUid could not be found in the database.")
-                    }
-                }
-            } else {
-                Timber.e("Not current playlist found in preferences.")
-            }
-        } else {
-            restartStream()
-        }
-    }
-
-    private fun fetchMoreNextPodcastClips(podcastIdentifier: String, clipIdentifier: String, successFunction: ((success: Boolean, numAddedEpisodes: Int) -> Unit)) {
-        serviceScope.launch {
-            val data = primediaRepo.getNextPodcastClips(podcastIdentifier, clipIdentifier)
-            data?.let { response ->
-                if (response.isSuccessful && response.data().isNotEmpty()) {
-                    Timber.d("PODCASTS")
-                    playlistRepository.getPlaylistWithPlaylistId(podcastIdentifier) {
-                        it?.let { playlistEntity ->
-                            addMediaItemsAndUpdateLinkTable(response.data(), playlistEntity.uid)
-                            successFunction(true, response.data().size)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private fun fetchMorePreviousPodcastClips(podcastIdentifier: String, clipIdentifier: String, successFunction: ((success: Boolean, numAddedEpisodes: Int) -> Unit)) {
-        serviceScope.launch {
-
-            val data = primediaRepo.getPreviousPodcastClips(podcastIdentifier, clipIdentifier)
-            data?.let { response ->
-                if (response.isSuccessful && response.data().isNotEmpty()) {
-                    Timber.d("PODCASTS")
-                    playlistRepository.getPlaylistWithPlaylistId(podcastIdentifier) {
-                        it?.let { playlistEntity ->
-                            addMediaItemsAndUpdateLinkTable(response.data(), playlistEntity.uid)
-                            successFunction(true, response.data().size)
-                        }
-                    }
-                }
-            }
-
-        }
-    }
-
-    private fun genRandomNextPlaylist(type: StreamItemDataModelType, append: Boolean = false, pageNumber: String = "1") {
-        val identifier = playDisplayModelData.currentStreamDetails?.identifier ?: ""
-        serviceScope.launch {
-            val data =
-                if (type == StreamItemDataModelType.STREAM) primediaRepo.getNextUpStreamData(identifier, pageNumber)
-                else primediaRepo.getNextUpClipData(identifier, pageNumber)
-            if (data?.isSuccessful != null && data.isSuccessful) {
-                val listData = data.data()
-
-                if (append) {
-                    addMediaItemsAndUpdateLinkTable(listData, preferenceService.currentPlaylistUid, true)
-                } else {
-                    playlistDbHelper.createNewPlaylist(true) { success, currentPlaylistUid ->
-                        if (success && !listData.isNullOrEmpty()) {
-                            preferenceService.currentPlaylistUid = currentPlaylistUid
-
-                            //add selected song to playlist
-                            playDisplayModelData.currentStreamDetails?.let {
-                                addMediaItemsAndUpdateLinkTable(listOf(it), currentPlaylistUid, true)
-                            }
-                            //add random gen to playlist
-                            addMediaItemsAndUpdateLinkTable(listData, currentPlaylistUid, true)
-                        } else {
-                            // propagate error
-                            Timber.d("Error occurred when creating a new playlist")
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private fun addMediaItemsAndUpdateLinkTable(listData: List<StreamItemDataModel>, currentPlaylistUid: Int, randomPlaylist: Boolean = false) {
-        for (item in listData) {
-
-            mediaDbHelper.insertOrUpdateMediaItem(item) { success, mediaItem ->
-                if (success && mediaItem != null) {
-                    mediaRepository.getPlayEntityWithId(mediaItem.identifier) {
-                        //create current playlist with added media items (link table)
-                        it?.let { media ->
-                            // do not add to random playlist if you have listen to the clip to completion.
-                            if (!randomPlaylist || !(media.listenedToCompletion && (media.progress / media.duration) > 0.98)) {
-                                val nuPlaylistMediaLink = PlaylistMediaLinkEntity(currentPlaylistUid, media.uid)
-                                playlistMediaLinkRepository.insertPlaylistMediaLink(nuPlaylistMediaLink)
-                            }
-                        }
-                    }
-                } else {
-                    // TODO - error handling
-                    Timber.e("Error insert or updating the media item in the DB. Most likely caused by media identifier being null.")
-                }
-            }
-        }
-    }
-
-    fun selectEpisodeFromPodcast(podcastIdentifier: String, episode: StreamItemDataModel) {
-        // get the selected playlist from the database -- need the db uid to set selectedPlaylistUid
-        playlistRepository.getPlaylistWithPlaylistId(podcastIdentifier) {
-            it?.let { playlist ->
-                preferenceService.currentPlaylistUid = playlist.uid
-
-                // get the list of media items in the playlist -- asc order from sql query
-                playlistMediaLinkRepository.getMediaForPlaylist(playlist.uid) { mediaListItems ->
-                    mediaListItems?.let { mediaList ->
-                        for (item in mediaList) {
-                            Timber.d("${item.publishDate} -- ${item.title}")
-                        }
-                        val currentPosOfSelectedTrack = mediaList.indexOfFirst { media -> media.identifier == episode.identifier }
-                        val nuPlaylist = playlist.copy(currentPosition = currentPosOfSelectedTrack)
-                        playlistRepository.updatePlaylist(nuPlaylist)
-                        playStream(episode)
-                    }
-                }
             }
         }
     }
